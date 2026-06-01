@@ -61,21 +61,26 @@ auto-plan-and-execute/
 
 ### 方式 1：远程一行安装（推荐）
 
+> 下方命令使用 `latest` 引用，它由 release 工作流自动滚动到**最新稳定版**（预发布版本不会被标记为 latest）。如需锁定具体版本，把 `latest` 换成 `vX.Y.Z` 即可。
+
 ```bash
 # 项目级 - 装到当前目录
-curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/latest/install.sh | bash
 
 # 项目级 - 装到指定项目
-curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/main/install.sh | bash -s -- /path/to/project
+curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/latest/install.sh | bash -s -- /path/to/project
 
 # 全局 - 装到 ~/.agents/skills 和 ~/.claude/skills
-curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/main/install.sh | bash -s -- -g
+curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/latest/install.sh | bash -s -- -g
 
 # 卸载项目级
-curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/main/install.sh | bash -s -- --uninstall
+curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/latest/install.sh | bash -s -- --uninstall
 
 # 卸载全局
-curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/main/install.sh | bash -s -- -g --uninstall
+curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/latest/install.sh | bash -s -- -g --uninstall
+
+# 锁定指定版本
+curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/v1.0.0/install.sh | bash
 ```
 
 ### 方式 2：本地 clone 后安装
@@ -202,7 +207,7 @@ Claude 会自动调度四阶段流程。
 | `AUTO_FLOW_DIR` | `.auto-flow` | 工作目录 |
 | `SKIP_CONFIRM` | `0` | 设为 `1` 跳过人工确认（仅 CI） |
 | `APE_REPO` | `Vocsal/auto-plan-and-execute` | install.sh 远程拉取的仓库 |
-| `APE_REF` | `main` | install.sh 远程拉取的分支 |
+| `APE_REF` | `latest` | install.sh 远程拉取的 ref（branch / tag / commit SHA）；`latest` 跟随最新稳定版 |
 | `APE_SRC` | — | install.sh 强制指定本地源目录 |
 
 ## 何时该用 / 不该用

@@ -14,16 +14,16 @@
 #      ./install.sh -g --uninstall           # 卸载全局
 #
 # 2) 远程一行安装（curl | bash）:
-#      curl -fsSL https://raw.githubusercontent.com/<OWNER>/<REPO>/main/install.sh | bash
-#      curl -fsSL https://raw.githubusercontent.com/<OWNER>/<REPO>/main/install.sh | bash -s -- /path/to/project
-#      curl -fsSL https://raw.githubusercontent.com/<OWNER>/<REPO>/main/install.sh | bash -s -- -g
-#      curl -fsSL https://raw.githubusercontent.com/<OWNER>/<REPO>/main/install.sh | bash -s -- --uninstall
-#      curl -fsSL https://raw.githubusercontent.com/<OWNER>/<REPO>/main/install.sh | bash -s -- -g --uninstall
+#      curl -fsSL https://raw.githubusercontent.com/<OWNER>/<REPO>/latest/install.sh | bash
+#      curl -fsSL https://raw.githubusercontent.com/<OWNER>/<REPO>/latest/install.sh | bash -s -- /path/to/project
+#      curl -fsSL https://raw.githubusercontent.com/<OWNER>/<REPO>/latest/install.sh | bash -s -- -g
+#      curl -fsSL https://raw.githubusercontent.com/<OWNER>/<REPO>/latest/install.sh | bash -s -- --uninstall
+#      curl -fsSL https://raw.githubusercontent.com/<OWNER>/<REPO>/latest/install.sh | bash -s -- -g --uninstall
 #
 # 在 curl|bash 模式下，脚本会从 GitHub 拉取整个仓库的 tar 包再展开。
 # 通过环境变量自定义来源:
 #   APE_REPO   仓库 owner/name（默认见下方 DEFAULT_REPO）
-#   APE_REF    分支或 tag（默认 main）
+#   APE_REF    分支、tag 或 commit SHA（默认 latest，由 release 工作流滚动到最新稳定版）
 #   APE_SRC    本地源目录（手动指定）— 强制使用此目录作为源
 #
 # 如果已存在旧版本，会先删除再复制（更新场景）。
@@ -40,7 +40,7 @@ set -euo pipefail
 
 # ---------- 默认远程仓库（首次发布时请修改） ----------
 DEFAULT_REPO="${APE_REPO:-Vocsal/auto-plan-and-execute}"
-DEFAULT_REF="${APE_REF:-main}"
+DEFAULT_REF="${APE_REF:-latest}"
 
 # ---------- 安装目标 ----------
 SKILL_NAME="auto-plan-and-execute"
@@ -75,7 +75,7 @@ auto-plan-and-execute 安装脚本
 
 环境变量:
   APE_REPO   远程仓库（owner/name，默认 ${DEFAULT_REPO}）
-  APE_REF    分支/tag（默认 ${DEFAULT_REF}）
+  APE_REF    分支 / tag / commit SHA（默认 ${DEFAULT_REF}；latest 由 release 工作流滚动到最新稳定版）
   APE_SRC    本地源目录，跳过自动检测
 
 项目级安装位置:
@@ -131,10 +131,11 @@ download_remote() {
 
   local tmp
   tmp="$(mktemp -d -t ape-install.XXXXXX)"
-  local url="https://codeload.github.com/${DEFAULT_REPO}/tar.gz/refs/heads/${DEFAULT_REF}"
+  # 通用形式，可同时接受 branch / tag / commit SHA
+  local url="https://codeload.github.com/${DEFAULT_REPO}/tar.gz/${DEFAULT_REF}"
   warn "从远程下载: $url" >&2
   if ! curl -fsSL "$url" | tar -xz -C "$tmp"; then
-    err "下载或解压失败"
+    err "下载或解压失败（ref=${DEFAULT_REF}）"
     rm -rf "$tmp"
     return 1
   fi
