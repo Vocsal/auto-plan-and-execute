@@ -1,0 +1,189 @@
+# auto-plan-and-execute
+
+把 **编写计划 → 审查计划 → 实施 → 审查实施** 四阶段开发循环，封装为 **单一 Claude Code Skill + 编排脚本**。
+
+每个阶段在独立的 Claude Session 中运行，天然 Context 隔离；阶段间用文档传递信息；最终输出一份可交付的实施总结。
+
+## 核心特性
+
+- **单一 skill 入口**：`SKILL.md`，触发后由其调度四阶段
+- **A + B 双重收敛**：审查报告末尾的 `STATUS: PASS / NEEDS_REVISION` + 每阶段最多 N 轮（默认 3）
+- **人工确认点**：计划定稿后、开始实施前停下来等待人工确认
+- **Context 隔离**：用 `claude -p` 启动独立 Session
+- **两种调用方式**：自动化（`auto-flow.sh`）和 Claude Code 斜杠命令（`/auto-plan-and-execute`）
+- **支持文本/文档两种输入**：脚本自动判别
+- **自动命名 + UUID**：每次执行产出 `.auto-flow/{name}-{uuid}/`，互不冲突，支持精确恢复
+
+## 目录结构
+
+```
+auto-plan-and-execute/
+├── SKILL.md                      # 唯一 skill 入口
+├── README.md
+├── usage.md                      # 详细使用文档
+├── install.sh                    # 安装到目标项目
+├── auto-flow.sh                  # 根目录便捷入口（转发到 scripts/）
+├── agents/                       # 四阶段角色 prompt
+│   ├── plan-write.md
+│   ├── plan-review.md
+│   ├── execute-plan.md
+│   └── execution-review.md
+├── scripts/
+│   └── auto-flow.sh              # 真正的编排脚本
+├── references/                   # 共享规范（被多个 agent 引用）
+│   ├── status-protocol.md
+│   ├── document-templates.md
+│   └── workflow-overview.md
+└── assets/
+    └── context-template.md       # 需求描述模板
+```
+
+运行后会在 **目标项目** 中生成：
+
+```
+{你的项目}/
+└── .auto-flow/
+    └── {需求名称}-{uuid}/
+        ├── context.md
+        ├── state.json
+        ├── plan-v1.md, plan-review-v1.md, ...
+        ├── plan.md                 # 定稿计划，无版本后缀
+        ├── execution-log-v1.md, execution-review-v1.md, ...
+        └── final-summary.md
+```
+
+## 安装
+
+### 方式 1：远程一行安装（推荐）
+
+```bash
+# 项目级 - 装到当前目录
+curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/main/install.sh | bash
+
+# 项目级 - 装到指定项目
+curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/main/install.sh | bash -s -- /path/to/project
+
+# 全局 - 装到 ~/.agents/skills 和 ~/.claude/skills
+curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/main/install.sh | bash -s -- -g
+
+# 卸载项目级
+curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/main/install.sh | bash -s -- --uninstall
+
+# 卸载全局
+curl -fsSL https://raw.githubusercontent.com/Vocsal/auto-plan-and-execute/main/install.sh | bash -s -- -g --uninstall
+```
+
+### 方式 2：本地 clone 后安装
+
+```bash
+git clone https://github.com/Vocsal/auto-plan-and-execute.git
+cd auto-plan-and-execute
+
+./install.sh                          # 项目级，装到当前目录
+./install.sh /path/to/your-project    # 项目级，装到指定目录
+./install.sh -g                       # 全局安装
+./install.sh -g --uninstall           # 卸载全局
+./install.sh --uninstall /path/...    # 卸载项目级
+```
+
+### 安装位置
+
+**项目级**（两份完整副本）：
+- `<目标>/.agents/skills/auto-plan-and-execute/`
+- `<目标>/.claude/skills/auto-plan-and-execute/`
+
+**全局**：
+- `~/.agents/skills/auto-plan-and-execute/`
+- `~/.claude/skills/auto-plan-and-execute/`
+
+项目级和全局**可共存**。Claude Code 优先识别项目级，未找到时回退全局。
+
+已安装过会**自动覆盖更新**（先删除旧版再复制）。
+
+## 使用
+
+### 启动新流程
+
+**方式 A：直接传需求文本**
+
+```bash
+.claude/skills/auto-plan-and-execute/auto-flow.sh "为登录接口加 IP+账号双维度限流：1分钟内 IP 失败5次封禁15分钟；1小时内账号失败10次封禁1小时；封禁返回 429。不引入新依赖。"
+```
+
+**方式 B：传需求文档**
+
+```bash
+.claude/skills/auto-plan-and-execute/auto-flow.sh ./requirements.md
+```
+
+脚本会自动:
+1. 检测输入类型（已存在的文件 → 文档；否则 → 文本）
+2. 从文档 H1 或文本首行推断名称（slug 化）
+3. 生成 8 位短 UUID
+4. 创建 `.auto-flow/{name}-{uuid}/`
+5. 跑计划循环 → 复制定稿为 `plan.md` → 等人工确认 → 跑实施循环 → 生成 `final-summary.md`
+
+### 中断恢复
+
+```bash
+.claude/skills/auto-plan-and-execute/auto-flow.sh --resume <名称>
+.claude/skills/auto-plan-and-execute/auto-flow.sh --resume <uuid>
+.claude/skills/auto-plan-and-execute/auto-flow.sh --resume <名称-uuid>
+```
+
+匹配规则：
+- 完整 `名称-uuid` → 精确匹配
+- 仅名称 → 匹配 `{名称}-*`（多个会列出让你选）
+- 仅 uuid → 匹配 `*-{uuid}`
+
+### 查询
+
+```bash
+.claude/skills/auto-plan-and-execute/auto-flow.sh --status <名称|uuid>
+.claude/skills/auto-plan-and-execute/auto-flow.sh --list
+```
+
+### Claude Code 内调用
+
+安装后直接在 Claude Code 中输入：
+
+```
+/auto-plan-and-execute
+```
+
+或自然语言：
+
+> 用 auto-plan-and-execute skill 帮我跑一遍："给登录接口加限流..."
+
+Claude 会自动调度四阶段流程。
+
+## 环境变量
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `MAX_PLAN_ITER` | 3 | 计划阶段最大轮数 |
+| `MAX_EXEC_ITER` | 3 | 实施阶段最大轮数 |
+| `CLAUDE_BIN` | `claude` | Claude Code CLI 命令 |
+| `AUTO_FLOW_DIR` | `.auto-flow` | 工作目录 |
+| `SKIP_CONFIRM` | `0` | 设为 `1` 跳过人工确认（仅 CI） |
+| `APE_REPO` | `Vocsal/auto-plan-and-execute` | install.sh 远程拉取的仓库 |
+| `APE_REF` | `main` | install.sh 远程拉取的分支 |
+| `APE_SRC` | — | install.sh 强制指定本地源目录 |
+
+## 何时该用 / 不该用
+
+**适合**:
+- 中等以上复杂度的需求（需先讨论方案再动手）
+- 希望保留完整决策记录的项目
+- 团队希望统一 "计划 + 审查" 流程
+
+**不适合**:
+- 一行小改
+- 探索性 spike
+- 大量 UI 设计、需频繁人工交互的任务
+
+详细使用方式见 [usage.md](usage.md)。
+
+## License
+
+MIT
