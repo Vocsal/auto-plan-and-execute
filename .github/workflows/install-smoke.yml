@@ -9,6 +9,9 @@ on:
     paths:
       - 'install.sh'        # 改了 install.sh 也跑一次
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   curl-bash-project:
     name: curl|bash 项目级安装
