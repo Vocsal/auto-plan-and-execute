@@ -1,5 +1,10 @@
 # auto-plan-and-execute
 
+[![CI](https://github.com/Vocsal/auto-plan-and-execute/actions/workflows/ci.yml/badge.svg)](https://github.com/Vocsal/auto-plan-and-execute/actions/workflows/ci.yml)
+[![Release](https://github.com/Vocsal/auto-plan-and-execute/actions/workflows/release.yml/badge.svg)](https://github.com/Vocsal/auto-plan-and-execute/actions/workflows/release.yml)
+[![Install Smoke Test](https://github.com/Vocsal/auto-plan-and-execute/actions/workflows/install-smoke.yml/badge.svg)](https://github.com/Vocsal/auto-plan-and-execute/actions/workflows/install-smoke.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 把 **编写计划 → 审查计划 → 实施 → 审查实施** 四阶段开发循环，封装为 **单一 Claude Code Skill + 编排脚本**。
 
 每个阶段在独立的 Claude Session 中运行，天然 Context 隔离；阶段间用文档传递信息；最终输出一份可交付的实施总结。

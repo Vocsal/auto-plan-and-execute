@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shell-syntax:
+    name: Shell 语法 & shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bash -n 语法检查
+        run: |
+          set -e
+          fail=0
+          while IFS= read -r f; do
+            echo "checking: $f"
+            bash -n "$f" || fail=1
+          done < <(find . -type f -name '*.sh' -not -path './.git/*')
+          exit "$fail"
+
+      - name: 安装 shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: shellcheck 静态分析
+        run: |
+          set -e
+          # SC1091: source 外部文件; SC2034: 未使用变量; SC2155: declare+assign
+          # 这些在我们的脚本里多为合理用法，先放过
+          find . -type f -name '*.sh' -not -path './.git/*' -print0 \
+            | xargs -0 shellcheck -S warning -e SC1091,SC2034,SC2155 || \
+              { echo "::warning::shellcheck 发现问题（warning 级别）"; exit 1; }
+
+  install-roundtrip:
+    name: 本地安装/卸载端到端测试
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 项目级安装到临时目录
+        run: |
+          set -e
+          PROJ=$(mktemp -d)
+          echo "PROJ=$PROJ"
+          ./install.sh "$PROJ"
+          # 校验关键文件
+          test -f "$PROJ/.agents/skills/auto-plan-and-execute/SKILL.md"
+          test -f "$PROJ/.claude/skills/auto-plan-and-execute/SKILL.md"
+          test -x "$PROJ/.agents/skills/auto-plan-and-execute/auto-flow.sh"
+          test -x "$PROJ/.claude/skills/auto-plan-and-execute/scripts/auto-flow.sh"
+          # install.sh 自身应被排除
+          test ! -f "$PROJ/.agents/skills/auto-plan-and-execute/install.sh"
+          test ! -f "$PROJ/.claude/skills/auto-plan-and-execute/install.sh"
+          echo "PROJ=$PROJ" >> "$GITHUB_ENV"
+
+      - name: 重复安装应清除旧版
+        run: |
+          set -e
+          touch "$PROJ/.agents/skills/auto-plan-and-execute/STALE.md"
+          ./install.sh "$PROJ"
+          test ! -f "$PROJ/.agents/skills/auto-plan-and-execute/STALE.md"
+
+      - name: 全局安装到临时 HOME
+        run: |
+          set -e
+          FAKE_HOME=$(mktemp -d)
+          HOME="$FAKE_HOME" ./install.sh -g
+          test -f "$FAKE_HOME/.agents/skills/auto-plan-and-execute/SKILL.md"
+          test -f "$FAKE_HOME/.claude/skills/auto-plan-and-execute/SKILL.md"
+          echo "FAKE_HOME=$FAKE_HOME" >> "$GITHUB_ENV"
+
+      - name: -g 与 <目标> 互斥应失败
+        run: |
+          set -e
+          if ./install.sh -g /tmp 2>/dev/null; then
+            echo "❌ 互斥校验失效"
+            exit 1
+          else
+            echo "✅ 互斥校验生效"
+          fi
+
+      - name: 全局卸载
+        run: |
+          set -e
+          HOME="$FAKE_HOME" ./install.sh -g --uninstall
+          test ! -d "$FAKE_HOME/.agents/skills/auto-plan-and-execute"
+          test ! -d "$FAKE_HOME/.claude/skills/auto-plan-and-execute"
+
+      - name: 项目级卸载
+        run: |
+          set -e
+          ./install.sh --uninstall "$PROJ"
+          test ! -d "$PROJ/.agents/skills/auto-plan-and-execute"
+          test ! -d "$PROJ/.claude/skills/auto-plan-and-execute"
+
+  auto-flow-cli:
+    name: auto-flow.sh CLI 烟雾测试（不调用 claude）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: --help 输出
+        run: ./auto-flow.sh --help
+
+      - name: --list 在无实例时应正常返回
+        run: ./auto-flow.sh --list
+
+      - name: --resume 缺参数应失败
+        run: |
+          if ./auto-flow.sh --resume 2>/dev/null; then
+            echo "❌ 应拒绝空参数"; exit 1
+          else
+            echo "✅ 拒绝空参数"
+          fi
+
+      - name: --resume 找不到实例应失败
+        run: |
+          if ./auto-flow.sh --resume nonexistent-deadbeef 2>/dev/null; then
+            echo "❌ 应失败"; exit 1
+          else
+            echo "✅ 报告找不到实例"
+          fi
