@@ -100,25 +100,55 @@ cd auto-plan-and-execute
 **全局**：
 - `~/.agents/skills/auto-plan-and-execute/`
 - `~/.claude/skills/auto-plan-and-execute/`
+- 附加：在 PATH 中创建可执行命令 `auto-plan-and-execute`（详见下方「全局命令」）
 
 项目级和全局**可共存**。Claude Code 优先识别项目级，未找到时回退全局。
 
 已安装过会**自动覆盖更新**（先删除旧版再复制）。
 
+### 全局命令（仅 `-g` 模式）
+
+全局安装时，脚本会额外在 PATH 候选目录中创建软链接 `auto-plan-and-execute`，让你在任意目录直接调用，无需记忆完整路径。
+
+候选目录按优先级：
+
+1. `$HOME/.local/bin/auto-plan-and-execute`（推荐，无需 sudo）
+2. `/usr/local/bin/auto-plan-and-execute`（需要该目录可写）
+
+行为说明：
+
+- 两个候选目录都不可写时 → 跳过软链接创建，仍可用完整路径调用
+- 目标位置已存在同源软链接 → 跳过（视为已安装）
+- 目标位置已存在其他文件 → 警告并跳过，**不会覆盖**
+- 所选目录不在 `PATH` 中 → 打印需要追加的 `export PATH=...`，由你自行加到 `~/.zshrc` / `~/.bashrc`（脚本**不自动改 shell 配置**）
+- `-g --uninstall` 会同时清理创建的软链接（不会删除别人放的同名普通文件）
+
 ## 使用
 
 ### 启动新流程
 
+> 下面所有命令都有两种调用形式：
+> - **项目级安装**：`.claude/skills/auto-plan-and-execute/auto-flow.sh ...`
+> - **全局安装**：直接 `auto-plan-and-execute ...`（前提是 PATH 已包含软链接所在目录）
+>
+> 为简洁，下文示例统一使用全局命令形式。
+
 **方式 A：直接传需求文本**
 
 ```bash
-.claude/skills/auto-plan-and-execute/auto-flow.sh "为登录接口加 IP+账号双维度限流：1分钟内 IP 失败5次封禁15分钟；1小时内账号失败10次封禁1小时；封禁返回 429。不引入新依赖。"
+auto-plan-and-execute "为登录接口加 IP+账号双维度限流：1分钟内 IP 失败5次封禁15分钟；1小时内账号失败10次封禁1小时；封禁返回 429。不引入新依赖。"
+
+# 等价的项目级调用：
+# .claude/skills/auto-plan-and-execute/auto-flow.sh "..."
 ```
 
 **方式 B：传需求文档**
 
 ```bash
-.claude/skills/auto-plan-and-execute/auto-flow.sh ./requirements.md
+auto-plan-and-execute ./requirements.md
+
+# 等价的项目级调用：
+# .claude/skills/auto-plan-and-execute/auto-flow.sh ./requirements.md
 ```
 
 脚本会自动:
@@ -131,9 +161,9 @@ cd auto-plan-and-execute
 ### 中断恢复
 
 ```bash
-.claude/skills/auto-plan-and-execute/auto-flow.sh --resume <名称>
-.claude/skills/auto-plan-and-execute/auto-flow.sh --resume <uuid>
-.claude/skills/auto-plan-and-execute/auto-flow.sh --resume <名称-uuid>
+auto-plan-and-execute --resume <名称>
+auto-plan-and-execute --resume <uuid>
+auto-plan-and-execute --resume <名称-uuid>
 ```
 
 匹配规则：
@@ -144,8 +174,8 @@ cd auto-plan-and-execute
 ### 查询
 
 ```bash
-.claude/skills/auto-plan-and-execute/auto-flow.sh --status <名称|uuid>
-.claude/skills/auto-plan-and-execute/auto-flow.sh --list
+auto-plan-and-execute --status <名称|uuid>
+auto-plan-and-execute --list
 ```
 
 ### Claude Code 内调用

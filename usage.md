@@ -67,15 +67,21 @@ A + B 组合：
 
 ### Step 2：启动
 
+> 调用形式取决于安装方式：
+> - **项目级**：`.claude/skills/auto-plan-and-execute/auto-flow.sh ...`
+> - **全局**（`install.sh -g`）：直接 `auto-plan-and-execute ...`（前提是 PATH 已包含软链接所在目录，详见 [README - 全局命令](README.md#全局命令仅--g-模式)）
+>
+> 下文示例统一使用全局命令形式，项目级用户请把 `auto-plan-and-execute` 替换为完整脚本路径。
+
 ```bash
 cd /path/to/your-project
-.claude/skills/auto-plan-and-execute/auto-flow.sh ./requirements.md
+auto-plan-and-execute ./requirements.md
 ```
 
 或：
 
 ```bash
-.claude/skills/auto-plan-and-execute/auto-flow.sh "给登录接口加 IP+账号 双维度限流..."
+auto-plan-and-execute "给登录接口加 IP+账号 双维度限流..."
 ```
 
 终端显示：
@@ -134,29 +140,33 @@ Claude 会按 `plan.md` 改代码、跑测试，输出 `execution-log-v1.md`。
 
 ## 命令对照
 
+下表中 `<cmd>` 代表入口命令：
+- 项目级安装 → `<cmd>` = `.claude/skills/auto-plan-and-execute/auto-flow.sh`
+- 全局安装   → `<cmd>` = `auto-plan-and-execute`
+
 | 命令 | 作用 |
 |---|---|
-| `auto-flow.sh "<文本>"` | 用需求文本启动 |
-| `auto-flow.sh ./req.md` | 用需求文档启动 |
-| `auto-flow.sh --resume <名称>` | 按名称恢复（多个匹配会列出） |
-| `auto-flow.sh --resume <uuid>` | 按 uuid 精确恢复 |
-| `auto-flow.sh --resume <名称-uuid>` | 按完整 instance 恢复 |
-| `auto-flow.sh --status <名称\|uuid>` | 查看状态 |
-| `auto-flow.sh --list` | 列出所有流程实例 |
-| `auto-flow.sh --help` | 帮助 |
+| `<cmd> "<文本>"` | 用需求文本启动 |
+| `<cmd> ./req.md` | 用需求文档启动 |
+| `<cmd> --resume <名称>` | 按名称恢复（多个匹配会列出） |
+| `<cmd> --resume <uuid>` | 按 uuid 精确恢复 |
+| `<cmd> --resume <名称-uuid>` | 按完整 instance 恢复 |
+| `<cmd> --status <名称\|uuid>` | 查看状态 |
+| `<cmd> --list` | 列出所有流程实例 |
+| `<cmd> --help` | 帮助 |
 
 ## 常见场景
 
 ### 调高迭代轮数
 
 ```bash
-MAX_PLAN_ITER=5 MAX_EXEC_ITER=5 auto-flow.sh "..."
+MAX_PLAN_ITER=5 MAX_EXEC_ITER=5 auto-plan-and-execute "..."
 ```
 
 ### 跳过人工确认（仅 CI）
 
 ```bash
-SKIP_CONFIRM=1 auto-flow.sh ./req.md
+SKIP_CONFIRM=1 auto-plan-and-execute ./req.md
 ```
 
 ### Claude Code 内手动单跑某阶段
@@ -173,13 +183,13 @@ Claude 会读取 `agents/plan-write.md` 作为角色 prompt，按规范产出。
 
 1. 编辑 `plan-v2.md`
 2. 删除 `plan-review-v2.md`（让脚本重新审查）
-3. `auto-flow.sh --resume <名称>`
+3. `auto-plan-and-execute --resume <名称>`
 
 ### 完全重做
 
 ```bash
 rm -rf .auto-flow/<名称>-<uuid>
-auto-flow.sh ./req.md
+auto-plan-and-execute ./req.md
 ```
 
 ## 故障排除
@@ -189,7 +199,7 @@ auto-flow.sh ./req.md
 skill 没按规范输出 STATUS 行。处理方式：
 
 1. 手动打开报告，在末尾加 `STATUS: PASS` 或 `STATUS: NEEDS_REVISION`
-2. `auto-flow.sh --resume <名称>` 继续
+2. `auto-plan-and-execute --resume <名称>` 继续
 
 ### "未产出 plan-vN.md"
 
