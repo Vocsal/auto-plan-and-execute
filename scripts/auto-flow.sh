@@ -333,7 +333,7 @@ stage_plan_loop() {
       run_claude "$prompt"
       [ -f "$plan_doc" ] || { err "未产出 $plan_doc"; exit 2; }
     else
-      log "[1/2] 已存在 $plan_doc，跳过生成（恢复模式）"
+      log "[1/2] 已存在 ${plan_doc}，跳过生成（恢复模式）"
     fi
 
     # 审查计划
@@ -359,7 +359,7 @@ stage_plan_loop() {
       run_claude "$rprompt"
       [ -f "$review_doc" ] || { err "未产出 $review_doc"; exit 2; }
     else
-      log "[2/2] 已存在 $review_doc，跳过审查（恢复模式）"
+      log "[2/2] 已存在 ${review_doc}，跳过审查（恢复模式）"
     fi
 
     write_state "$instance" "$STAGE_PLAN" "$i" "0" ""
@@ -383,7 +383,7 @@ stage_plan_loop() {
     esac
   done
 
-  warn "已达到计划阶段最大轮数 $MAX_PLAN_ITER，以最后一版计划进入下一阶段"
+  warn "已达到计划阶段最大轮数 ${MAX_PLAN_ITER}，以最后一版计划进入下一阶段"
   finalize_plan "$instance" "$(work_dir "$instance")/plan-v$MAX_PLAN_ITER.md"
   return 0
 }
@@ -495,7 +495,7 @@ stage_execute_loop() {
       run_claude "$prompt"
       [ -f "$exec_log" ] || { err "未产出 $exec_log"; exit 2; }
     else
-      log "[1/2] 已存在 $exec_log，跳过实施（恢复模式）"
+      log "[1/2] 已存在 ${exec_log}，跳过实施（恢复模式）"
     fi
 
     if [ ! -f "$review_doc" ]; then
@@ -521,7 +521,7 @@ stage_execute_loop() {
       run_claude "$rprompt"
       [ -f "$review_doc" ] || { err "未产出 $review_doc"; exit 2; }
     else
-      log "[2/2] 已存在 $review_doc，跳过审查（恢复模式）"
+      log "[2/2] 已存在 ${review_doc}，跳过审查（恢复模式）"
     fi
 
     write_state "$instance" "$STAGE_EXECUTE" "$(read_state "$instance" plan_iter)" "$i" "$plan_final"
@@ -544,7 +544,7 @@ stage_execute_loop() {
     esac
   done
 
-  warn "已达到实施阶段最大轮数 $MAX_EXEC_ITER，强制进入总结阶段"
+  warn "已达到实施阶段最大轮数 ${MAX_EXEC_ITER}，强制进入总结阶段"
   write_state "$instance" "$STAGE_SUMMARY" "$(read_state "$instance" plan_iter)" "$MAX_EXEC_ITER" "$plan_final"
   return 0
 }
@@ -563,7 +563,7 @@ stage_summary() {
   exec_logs="$(ls -1 "$wd"/execution-log-v*.md 2>/dev/null | tr '\n' ' ')"
   exec_reviews="$(ls -1 "$wd"/execution-review-v*.md 2>/dev/null | tr '\n' ' ')"
 
-  local prompt="请基于以下文档生成最终的【项目需求实现总结】，写到 $summary。
+  local prompt="请基于以下文档生成最终的【项目需求实现总结】，写到 ${summary}。
 
 请先 Read:
 - $SKILL_ROOT/references/document-templates.md （使用其中的'最终交付总结'章节模板）
