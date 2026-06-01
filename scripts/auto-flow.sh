@@ -15,6 +15,7 @@
 #   CLAUDE_BIN          claude CLI 路径（默认 claude）
 #   AUTO_FLOW_DIR       工作目录（默认 .auto-flow）
 #   SKIP_CONFIRM        设为 1 跳过实施前人工确认（仅 CI）
+#   AUTO_FLOW_VERBOSE   设为 1（默认）开启 claude 流式事件日志；设为 0 静默
 
 set -euo pipefail
 
@@ -71,6 +72,7 @@ auto-plan-and-execute / auto-flow.sh
   CLAUDE_BIN    (默认 $CLAUDE_BIN)
   AUTO_FLOW_DIR (默认 $AUTO_FLOW_DIR)
   SKIP_CONFIRM  (默认 0)  设为 1 跳过实施前人工确认
+  AUTO_FLOW_VERBOSE (默认 1)  设为 0 关闭 claude 流式事件日志
 EOF
 }
 
@@ -219,7 +221,44 @@ EOF
 run_claude() {
   local prompt="$1"
   log "→ 调用 claude (独立 Session)..."
-  "$CLAUDE_BIN" -p "$prompt" --dangerously-skip-permissions
+  if [ "${AUTO_FLOW_VERBOSE:-1}" = "1" ]; then
+    # 流式 JSON 输出 → 用 jq 过滤成人类可读的"事件流"
+    # 通过 PIPESTATUS 捕获 claude 的退出码，避免被下游 jq/while 吞掉
+    set +e
+    "$CLAUDE_BIN" -p "$prompt" \
+      --dangerously-skip-permissions \
+      --verbose \
+      --output-format stream-json \
+    | while IFS= read -r line; do
+        if command -v jq >/dev/null 2>&1; then
+          echo "$line" | jq -r '
+            if .type=="assistant" then
+              (.message.content[]?
+                | if .type=="tool_use" then
+                    "  · 工具调用: \(.name) " + ((.input // {}) | tostring | .[0:160])
+                  elif .type=="text" then
+                    "  · " + (.text | gsub("\n"; " ") | .[0:200])
+                  else empty end)
+            elif .type=="user" then
+              (.message.content[]?
+                | select(.type=="tool_result")
+                | "  ← 工具结果: " + ((.content // "") | tostring | gsub("\n"; " ") | .[0:160]))
+            elif .type=="result" then
+              "  ✓ claude 完成 (耗时 \(.duration_ms // 0)ms, 轮数 \(.num_turns // 0))"
+            elif .type=="system" and .subtype=="init" then
+              "  · session 初始化 (model=\(.model // "?"))"
+            else empty end
+          ' 2>/dev/null || echo "$line"
+        else
+          echo "$line"
+        fi
+      done
+    local rc=${PIPESTATUS[0]}
+    set -e
+    return "$rc"
+  else
+    "$CLAUDE_BIN" -p "$prompt" --dangerously-skip-permissions
+  fi
 }
 
 # 检查 STATUS 行
